@@ -36,8 +36,8 @@
     label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#475569;margin:12px 0 6px}
     input,select,button,textarea{width:100%;border:1px solid #cbd5e1;border-radius:14px;padding:12px 14px;font-size:16px;background:#fff;color:var(--text)}
     input:focus,select:focus,textarea:focus{outline:none;border-color:#60a5fa;box-shadow:0 0 0 4px rgba(96,165,250,.15)}
-    button{cursor:pointer;font-weight:700;transition:.15s transform,.15s opacity,.15s box-shadow}
-    button:hover{transform:translateY(-1px)}
+    button{cursor:pointer;font-weight:800;transition:.15s transform,.15s opacity,.15s box-shadow,.15s border-color,.15s background-color;line-height:1.2;letter-spacing:.01em;box-shadow:0 2px 8px rgba(15,23,42,.08)}
+    button:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(15,23,42,.12)}
     button.primary{background:linear-gradient(90deg,#0f172a,#0b2347);color:#fff;border-color:#0f172a}
     button.secondary{background:#fff;color:#0f172a}
     button.success{background:linear-gradient(90deg,#0f766e,#16a34a);border-color:#0f766e;color:#fff}
@@ -70,7 +70,7 @@
     .ynp{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:10px;margin-top:12px}
     .ynp button{padding:14px 12px}
     .rating-grid{grid-template-columns:repeat(7,minmax(0,1fr));align-items:center}
-    .zero-btn{width:64px;min-width:64px;max-width:64px;justify-self:center;pointer-events:none;opacity:.55;cursor:not-allowed;padding:14px 0}
+    .zero-btn{padding:14px 12px;background:#f8fafc;color:#0f172a;border-color:#cbd5e1}
     .small-actions{grid-template-columns:repeat(2,minmax(0,120px));gap:6px;justify-content:start}
     .small-btn{padding:8px 6px;font-size:13px;border-radius:10px;max-width:120px}
     .sessions-wrap{overflow:auto;margin-top:12px}
@@ -483,7 +483,7 @@
       card.className = 'metric-card';
       if(m.type === 'count'){
         card.innerHTML = ''
-          + '<div class="metric-head"><div><b>' + escapeHtml(m.name) + '</b><div class="metric-type">COUNT</div><button class="danger" data-action="delete-metric" data-metric="' + m.id + '">DELETE</button></div><span class="badge" data-badge>0</span></div>'
+          + '<div class="metric-head"><div><b>' + escapeHtml(m.name) + '</b><div class="metric-type">COUNT</div><button class="danger small-btn" data-action="delete-metric" data-metric="' + m.id + '">DELETE</button></div><span class="badge" data-badge>0</span></div>'
           + '<div class="counter">'
           + '<button class="ghost" data-action="dec" data-metric="' + m.id + '">-</button>'
           + '<button class="ghost" data-action="inc" data-metric="' + m.id + '">+</button>'
@@ -495,13 +495,13 @@
           + '<div class="metric-head"><div><b>' + escapeHtml(m.name) + '</b><div class="metric-type">RATING CARD</div></div><span class="badge" data-badge>0 pts • 0 actions • avg 0.0</span></div>'
           + '<div class="group-title">Add rating</div>'
           + '<div class="ynp rating-grid">'
-          + '<button class="danger" data-action="rating-add" data-value="-5" data-metric="' + m.id + '">-5</button>'
-          + '<button class="warning" data-action="rating-add" data-value="-2.5" data-metric="' + m.id + '">-2.5</button>'
-          + '<button class="warning" data-action="rating-add" data-value="-1" data-metric="' + m.id + '">-1</button>'
-          + '<button class="secondary zero-btn" disabled aria-disabled="true" tabindex="-1">0</button>'
           + '<button class="success" data-action="rating-add" data-value="1" data-metric="' + m.id + '">+1</button>'
           + '<button class="success" data-action="rating-add" data-value="2.5" data-metric="' + m.id + '">+2.5</button>'
           + '<button class="success" data-action="rating-add" data-value="4" data-metric="' + m.id + '">+4</button>'
+          + '<button class="secondary zero-btn" data-action="rating-add" data-value="0" data-metric="' + m.id + '">0</button>'
+          + '<button class="warning" data-action="rating-add" data-value="-1" data-metric="' + m.id + '">-1</button>'
+          + '<button class="warning" data-action="rating-add" data-value="-2.5" data-metric="' + m.id + '">-2.5</button>'
+          + '<button class="danger" data-action="rating-add" data-value="-5" data-metric="' + m.id + '">-5</button>'
           + '</div>'
           + '<div class="group-title">Controls</div>'
           + '<div class="ynp small-actions">'
@@ -515,7 +515,7 @@
           + '</div>';
       } else {
         card.innerHTML = ''
-          + '<div class="metric-head"><div><b>' + escapeHtml(m.name) + '</b><div class="metric-type">OUTCOME (success / fail)</div><button class="danger" data-action="delete-metric" data-metric="' + m.id + '">DELETE</button></div><span class="badge" data-badge>0/0 (—)</span></div>'
+          + '<div class="metric-head"><div><b>' + escapeHtml(m.name) + '</b><div class="metric-type">OUTCOME (success / fail)</div><button class="danger small-btn" data-action="delete-metric" data-metric="' + m.id + '">DELETE</button></div><span class="badge" data-badge>0/0 (—)</span></div>'
           + '<div class="stack">'
           + '<button class="success" data-action="succ" data-metric="' + m.id + '">✅ Success +1</button>'
           + '<button class="danger" data-action="fail" data-metric="' + m.id + '">❌ Failure +1</button>'
