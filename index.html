@@ -1793,6 +1793,47 @@ body.analysis-mode .hak-suite-bar{display:none!important}
   let cleanSheetActive = false;
   let goalOutcomeSelected = false;
   let playerType = '';
+  let hakAnalysisDirty = false;
+  let hakNavigationGuardArmed = false;
+  let hakNavigationAllowed = false;
+
+  function hakMarkAnalysisDirty() {
+    hakAnalysisDirty = true;
+    if (hakNavigationGuardArmed || !window.history?.pushState) return;
+    history.pushState({ ...(history.state || {}), hakAnalysisGuard: true }, '', location.href);
+    hakNavigationGuardArmed = true;
+  }
+
+  function hakMarkAnalysisSaved() {
+    hakAnalysisDirty = false;
+  }
+
+  function hakLeaveAfterGuard() {
+    hakNavigationAllowed = true;
+    setTimeout(() => history.back(), 0);
+  }
+
+  window.addEventListener('popstate', () => {
+    if (hakNavigationAllowed || !hakNavigationGuardArmed) return;
+
+    // A saved analysis can leave immediately. The second history.back()
+    // skips the invisible guard entry that was added after the first edit.
+    if (!hakAnalysisDirty) {
+      hakLeaveAfterGuard();
+      return;
+    }
+
+    const leave = confirm(
+      'You have unsaved changes in this analysis.\n\n' +
+      'If you leave now, the latest work may be lost.\n\n' +
+      'Press OK to leave or Cancel to stay on the analysis.'
+    );
+    if (leave) {
+      hakLeaveAfterGuard();
+    } else {
+      history.pushState({ ...(history.state || {}), hakAnalysisGuard: true }, '', location.href);
+    }
+  });
 
   const SCORE_VALUES = {
     TOP: 10,
@@ -1826,6 +1867,7 @@ body.analysis-mode .hak-suite-bar{display:none!important}
   }
 
   function setPlayerType(value) {
+    const previousPlayerType = playerType;
     playerType = value === 'goalkeeper' || value === 'outfield' ? value : '';
     if (!isGoalkeeperMode()) {
       goalsConcedet = 0;
@@ -1835,6 +1877,7 @@ body.analysis-mode .hak-suite-bar{display:none!important}
     }
     const select = document.getElementById('playerType');
     if (select && select.value !== playerType) select.value = playerType;
+    if (playerType !== previousPlayerType) hakMarkAnalysisDirty();
     render();
   }
 
@@ -2003,6 +2046,7 @@ function deleteGeneratedClips() {
   });
   gkaRemoveUnreferencedVideos(videoNames);
 
+  hakMarkAnalysisDirty();
   renderLogTable();
   gkaStatus(`${videoNames.length} generated ${clipWord} deleted. Actions and ratings remain.`);
   alert(`${videoNames.length} generated ${clipWord} deleted.\nActions and ratings remain in Action Log.`);
@@ -2304,6 +2348,7 @@ document.addEventListener('keydown', event => {
 
     metrics[raw] = createMetricState();
     activeMetric = raw;
+    hakMarkAnalysisDirty();
     if (shouldRender) render();
     return true;
   }
@@ -2321,6 +2366,7 @@ document.addEventListener('keydown', event => {
 
     const remainingMetrics = sortedMetricNames();
     activeMetric = remainingMetrics.length ? remainingMetrics[0] : GOALS_CONCEDET_METRIC;
+    hakMarkAnalysisDirty();
     render();
   }
 
@@ -2355,6 +2401,7 @@ document.addEventListener('keydown', event => {
     goalOutcomeSelected = goalsConcedet > 0;
     cleanSheetActive = false;
     activeMetric = GOALS_CONCEDET_METRIC;
+    hakMarkAnalysisDirty();
 
     refreshLiveTotals();
     render();
@@ -2373,6 +2420,7 @@ document.addEventListener('keydown', event => {
     goalOutcomeSelected = cleanSheetActive;
     goalsConcedet = 0;
     activeMetric = GOALS_CONCEDET_METRIC;
+    hakMarkAnalysisDirty();
     render();
   }
 
@@ -2459,6 +2507,7 @@ document.addEventListener('keydown', event => {
         isMoment: true
       });
 
+      hakMarkAnalysisDirty();
       render();
       showRatingFeedback(MOMENTS_METRIC, value);
       return;
@@ -2477,6 +2526,7 @@ document.addEventListener('keydown', event => {
     });
 
     const scoredMetric=activeMetric;
+    hakMarkAnalysisDirty();
     render();
     showRatingFeedback(scoredMetric, value);
   }
@@ -2504,6 +2554,7 @@ document.addEventListener('keydown', event => {
       activeMetric = GOALS_CONCEDET_METRIC;
     }
 
+    hakMarkAnalysisDirty();
     render();
   }
 
@@ -2705,6 +2756,7 @@ document.addEventListener('keydown', event => {
       entry.edited=true;
       entry.editedAt=new Date().toISOString();
       if(clipBeforeEdit!==clipAfterEdit&&entry._gkaVideoName)gkaMarkSharedClipForRegeneration(entry);
+      hakMarkAnalysisDirty();
     }
     rebuildMetricsFromHistory();rebuildMetricMultiFilter();closeActionEdit();render();
   }
@@ -2775,6 +2827,7 @@ document.addEventListener('keydown', event => {
       delete item._gkaVideoError;
     });
 
+    hakMarkAnalysisDirty();
     renderLogTable();
     finishClipProgress(1,1,0);
     gkaStatus('The clip has been updated with Metric • Score and Coach Note.');
@@ -3480,10 +3533,11 @@ document.addEventListener('keydown', event => {
   try{
     const name=file.name.toLowerCase();
     if(name.endsWith('.gka')||name.endsWith('.zip')||file.type==='application/zip'||file.type==='application/octet-stream'){
-      await importGKAPackage(file); render(); alert(`Import successful. ${gkaVideoClips.size} video clips have been loaded.`); return;
+      await importGKAPackage(file); hakMarkAnalysisSaved(); render(); alert(`Import successful. ${gkaVideoClips.size} video clips have been loaded.`); return;
     }
     const text=await readImportFile(file);
     if(name.endsWith('.json')) importFromJSONText(text); else if(name.endsWith('.csv')) importFromCSVText(text); else { const t=text.trim(); if(t.startsWith('{')) importFromJSONText(text); else importFromCSVText(text); }
+    hakMarkAnalysisSaved();
     alert('Import successful.');
   }catch(error){console.error(error);alert('Import failed: '+(error?.message||error));}finally{event.target.value='';}
 }
@@ -3680,9 +3734,12 @@ document.addEventListener('keydown', event => {
     }
   });
 
-  document.getElementById('playerName').addEventListener('input', render);
-  document.getElementById('matchDate').addEventListener('input', render);
-  document.getElementById('matchOpponent').addEventListener('input', render);
+  ['playerName', 'matchDate', 'matchOpponent'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => {
+      hakMarkAnalysisDirty();
+      render();
+    });
+  });
   document.getElementById('importFileInput').addEventListener('change', handleImportFile);
   document.querySelector('.action-log-panel')?.addEventListener('toggle', updateActionLogToggle);
   document.getElementById('actionLogSortFilter')?.addEventListener('change', renderLogTable);
@@ -3789,6 +3846,7 @@ function deleteTelestratorVersion(videoName) {
   if (!confirm('Delete the Telestrator version and its editable project?\n\nThe original generated clip will remain.')) return;
   gkaInvalidateTelestrator(videoName);
   gkaTelestratorDirty = true;
+  hakMarkAnalysisDirty();
   updateTelestratorPlayButton();
   renderLogTable();
 }
@@ -3807,6 +3865,7 @@ window.addEventListener('message', event => {
     updatedAt: new Date().toISOString()
   });
   gkaTelestratorDirty = true;
+  hakMarkAnalysisDirty();
   closeGkaTelestrator();
   updateTelestratorPlayButton();
   renderLogTable();
@@ -3815,7 +3874,7 @@ window.addEventListener('message', event => {
 });
 
 window.addEventListener('beforeunload', event => {
-  if (!gkaTelestratorDirty) return;
+  if (hakNavigationAllowed || (!hakAnalysisDirty && !gkaTelestratorDirty)) return;
   event.preventDefault();
   event.returnValue = '';
 });
@@ -5063,6 +5122,7 @@ async function exportSelectedFromActionLog() {
     'application/octet-stream'
   );
   gkaTelestratorDirty = false;
+  hakMarkAnalysisSaved();
 
   alert(
     `Done! Exported ${ready.length} video clips from ${selected.length} selected actions.\n\nThe complete analysis remains in the GKA package.`
@@ -5228,6 +5288,7 @@ async function generateActionVideos(options = {}) {
         // be regenerated before it is considered current.
         formerLinkedEntries.forEach(entry => { entry._clipNeedsRegeneration = true; });
         gkaRemoveUnreferencedVideos(previousVideoNames);
+        hakMarkAnalysisDirty();
         success++;
         successfulActions += groupEntries.length;
       } catch (clipError) {
@@ -5368,6 +5429,7 @@ async function exportSelectedVideoPackage(){
   );
   downloadFile(`${buildSafeFilename()}_selected.gka`, blob, 'application/octet-stream');
   gkaTelestratorDirty = false;
+  hakMarkAnalysisSaved();
   closeVideoExportPicker();
 }
 
