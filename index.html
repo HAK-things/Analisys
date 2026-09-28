@@ -1721,6 +1721,7 @@ body.analysis-mode .hak-suite-bar{display:none!important}
       <button class="add-btn" onclick="generateSelectedFromActionLog()">🎬 Generate Selected</button>
       <button class="add-btn" onclick="playAllSelectedClips()">▶ Play Selected</button>
       <button class="add-btn" onclick="playAllGeneratedClips()">▶ Play Generated</button>
+      <button id="playTelestratorClipsBtn" class="add-btn" onclick="playAllTelestratorClips()" disabled>▶ Play Telestrator Clips (0)</button>
       <button class="add-btn" onclick="openDownloadGeneratedPicker()">⬇ Download Selected Generated</button>
       <button id="deleteGeneratedClipsBtn" class="delete-btn" onclick="deleteGeneratedClips()" disabled>DELETE GENERATED CLIPS</button>
     </div>
@@ -3721,6 +3722,15 @@ function gkaInvalidateTelestrator(videoName) {
   if (!videoName) return;
   gkaTelestratorProjects.delete(videoName);
   gkaTelestratorClips.delete(videoName);
+  updateTelestratorPlayButton();
+}
+
+function updateTelestratorPlayButton() {
+  const button = document.getElementById('playTelestratorClipsBtn');
+  if (!button) return;
+  const count = gkaTelestratorClips.size;
+  button.textContent = `▶ Play Telestrator Clips (${count})`;
+  button.disabled = count === 0;
 }
 
 function sendPendingClipToTelestrator() {
@@ -3779,6 +3789,7 @@ function deleteTelestratorVersion(videoName) {
   if (!confirm('Delete the Telestrator version and its editable project?\n\nThe original generated clip will remain.')) return;
   gkaInvalidateTelestrator(videoName);
   gkaTelestratorDirty = true;
+  updateTelestratorPlayButton();
   renderLogTable();
 }
 
@@ -3797,6 +3808,7 @@ window.addEventListener('message', event => {
   });
   gkaTelestratorDirty = true;
   closeGkaTelestrator();
+  updateTelestratorPlayButton();
   renderLogTable();
   gkaStatus('Telestrator version saved. Export a new GKA package to keep it.');
   alert('The Telestrator version has been saved in this analysis.\n\nExport a new GKA package to keep the changes.');
@@ -4495,14 +4507,16 @@ async function generateSelectedFromActionLog() {
 
 
 
-let gkaPlaylistItems=[],gkaPlaylistIndex=0,gkaPlaylistObjectUrl=null;
+let gkaPlaylistItems=[],gkaPlaylistIndex=0,gkaPlaylistObjectUrl=null,gkaPlaylistSource='original';
 function gkaPlaylistSeconds(e){const n=Number(e?.seconds);return Number.isFinite(n)?n:parseTimestampToSeconds(e?.timestamp||'00:00');}
 function gkaPlayableSelected(){return gkaUniqueClipEntries(getSelectedActionLogEntries()).slice().sort((a,b)=>gkaPlaylistSeconds(a)-gkaPlaylistSeconds(b));}
 function gkaPlayableGenerated(){return gkaUniqueClipEntries(getVideoScoreEntries()).slice().sort((a,b)=>gkaPlaylistSeconds(a)-gkaPlaylistSeconds(b));}
+function gkaPlayableTelestrator(){return gkaPlayableGenerated().filter(e=>gkaTelestratorClips.has(e._gkaVideoName));}
 function gkaRevokePlaylistUrl(){if(gkaPlaylistObjectUrl){try{URL.revokeObjectURL(gkaPlaylistObjectUrl)}catch(_){}gkaPlaylistObjectUrl=null;}}
-function gkaLoadPlaylistItem(i,autoplay=true){const p=document.getElementById('gkaPlaylistPlayer'),info=document.getElementById('gkaPlaylistInfo');if(!p||!gkaPlaylistItems.length)return;gkaPlaylistIndex=Math.max(0,Math.min(i,gkaPlaylistItems.length-1));const e=gkaPlaylistItems[gkaPlaylistIndex],b=gkaVideoClips.get(e._gkaVideoName);if(!b)return gkaPlaylistNext();p.pause();gkaRevokePlaylistUrl();gkaPlaylistObjectUrl=URL.createObjectURL(b);p.src=gkaPlaylistObjectUrl;p.load();if(info){const linked=gkaEntriesSharingVideo(e._gkaVideoName).sort((a,b)=>gkaEntrySeconds(a)-gkaEntrySeconds(b));const details=(linked.length?linked:[e]).map(item=>`${item.metric||''} • ${displayScoreValue(normalizeScoreValue(item.value))}`).join('  |  ');info.textContent=`${gkaPlaylistIndex+1} / ${gkaPlaylistItems.length} • ${linked.length>1?`MERGED ×${linked.length}`:(e.timestamp||'')} • ${details}`;}if(autoplay){const x=p.play();if(x?.catch)x.catch(()=>{});}}
-function playAllSelectedClips(){const s=getSelectedActionLogEntries();if(!s.length){alert('Select at least one action from the Action Log.');return;}const a=gkaPlayableSelected();if(!a.length){alert('The selected actions have no available clips. Generate the clips first or import a GKA file containing clips.');return;}const missing=s.filter(e=>!(e._gkaVideoName&&gkaVideoClips.has(e._gkaVideoName)));if(missing.length&&!confirm(`${missing.length} of the selected actions have no video. Play the remaining ${a.length} clips?`))return;gkaPlaylistItems=a;gkaPlaylistIndex=0;const title=document.getElementById('gkaPlaylistTitle');if(title)title.textContent='▶ Play All Selected Clips';document.getElementById('gkaPlaylistOverlay').style.display='flex';gkaLoadPlaylistItem(0,true);}
-function playAllGeneratedClips(){const a=gkaPlayableGenerated();if(!a.length){alert('There are no generated clips ready yet.');return;}gkaPlaylistItems=a;gkaPlaylistIndex=0;const title=document.getElementById('gkaPlaylistTitle');if(title)title.textContent='▶ Play All Generated Clips';document.getElementById('gkaPlaylistOverlay').style.display='flex';gkaLoadPlaylistItem(0,true);}
+function gkaLoadPlaylistItem(i,autoplay=true){const p=document.getElementById('gkaPlaylistPlayer'),info=document.getElementById('gkaPlaylistInfo');if(!p||!gkaPlaylistItems.length)return;gkaPlaylistIndex=Math.max(0,Math.min(i,gkaPlaylistItems.length-1));const e=gkaPlaylistItems[gkaPlaylistIndex],final=gkaTelestratorClips.get(e._gkaVideoName),b=gkaPlaylistSource==='telestrator'?final?.blob:gkaVideoClips.get(e._gkaVideoName);if(!b)return gkaPlaylistNext();p.pause();gkaRevokePlaylistUrl();gkaPlaylistObjectUrl=URL.createObjectURL(b);p.src=gkaPlaylistObjectUrl;p.load();if(info){const linked=gkaEntriesSharingVideo(e._gkaVideoName).sort((a,b)=>gkaEntrySeconds(a)-gkaEntrySeconds(b));const details=(linked.length?linked:[e]).map(item=>`${item.metric||''} • ${displayScoreValue(normalizeScoreValue(item.value))}`).join('  |  ');const version=gkaPlaylistSource==='telestrator'?'TELESTRATOR • ':'';info.textContent=`${gkaPlaylistIndex+1} / ${gkaPlaylistItems.length} • ${version}${linked.length>1?`MERGED ×${linked.length}`:(e.timestamp||'')} • ${details}`;}if(autoplay){const x=p.play();if(x?.catch)x.catch(()=>{});}}
+function playAllSelectedClips(){const s=getSelectedActionLogEntries();if(!s.length){alert('Select at least one action from the Action Log.');return;}const a=gkaPlayableSelected();if(!a.length){alert('The selected actions have no available clips. Generate the clips first or import a GKA file containing clips.');return;}const missing=s.filter(e=>!(e._gkaVideoName&&gkaVideoClips.has(e._gkaVideoName)));if(missing.length&&!confirm(`${missing.length} of the selected actions have no video. Play the remaining ${a.length} clips?`))return;gkaPlaylistSource='original';gkaPlaylistItems=a;gkaPlaylistIndex=0;const title=document.getElementById('gkaPlaylistTitle');if(title)title.textContent='▶ Play All Selected Clips';document.getElementById('gkaPlaylistOverlay').style.display='flex';gkaLoadPlaylistItem(0,true);}
+function playAllGeneratedClips(){const a=gkaPlayableGenerated();if(!a.length){alert('There are no generated clips ready yet.');return;}gkaPlaylistSource='original';gkaPlaylistItems=a;gkaPlaylistIndex=0;const title=document.getElementById('gkaPlaylistTitle');if(title)title.textContent='▶ Play All Generated Clips';document.getElementById('gkaPlaylistOverlay').style.display='flex';gkaLoadPlaylistItem(0,true);}
+function playAllTelestratorClips(){const a=gkaPlayableTelestrator();if(!a.length){alert('There are no saved Telestrator clips yet.');updateTelestratorPlayButton();return;}gkaPlaylistSource='telestrator';gkaPlaylistItems=a;gkaPlaylistIndex=0;const title=document.getElementById('gkaPlaylistTitle');if(title)title.textContent=`▶ Play Telestrator Clips (${a.length})`;document.getElementById('gkaPlaylistOverlay').style.display='flex';gkaLoadPlaylistItem(0,true);}
 
 function openDownloadGeneratedPicker(){
   const selected=getSelectedActionLogEntries();
@@ -5484,6 +5498,8 @@ async function importGKAPackage(file) {
       updatedAt: item.updatedAt || saved?.updatedAt || null
     });
   }
+
+  updateTelestratorPlayButton();
 
   const names = sortedMetricNames();
   activeMetric = names.length ? names[0] : (isGoalkeeperMode() ? GOALS_CONCEDET_METRIC : MOMENTS_METRIC);
